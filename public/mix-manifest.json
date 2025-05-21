@@ -1,4 +1,6 @@
 {
+    "/js/app.js": "/js/app.js",
+    "/css/app.css": "/css/app.css",
     "/css/cepre-coreui.css": "/css/cepre-coreui.css",
     "/js/cepre-coreui.js": "/js/cepre-coreui.js",
     "/js/web/main.js": "/js/web/main.js",

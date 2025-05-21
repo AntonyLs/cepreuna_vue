@@ -2,38 +2,40 @@
 
 namespace App\Http\Controllers\Intranet;
 
-use App\Http\Controllers\Controller;
+use PDF;
+use TCPDF;
+use App\Models\Pago;
+use App\Models\User;
+use App\Models\Turno;
+use App\Models\Horario;
+use App\Models\Periodo;
+use App\Models\GrupoAula;
+use App\Models\Matricula;
+use App\Models\Estudiante;
+use Illuminate\Http\Request;
+use App\Models\Inscripciones;
+use App\Models\CargaAcademica;
+use App\Models\PlantillaHorario;
 use App\Models\AsistenciaDocente;
-use App\Models\AsistenciaEstudiante;
-use App\Models\AsistenciaEstudianteDetalle;
+use App\Models\InscripcionDocente;
+use Illuminate\Support\Facades\DB;
 use App\Models\BuDocenteEstudiante;
 use App\Models\CalificacionDocente;
-use App\Models\CalificacionDocenteDetalle;
-use App\Models\CargaAcademica;
-use App\Models\Estudiante;
-use App\Models\GrupoAula;
-use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Models\AsistenciaEstudiante;
 use App\VueTables\EloquentVueTables;
-use App\Models\InscripcionDocente;
-use App\Models\Inscripciones;
-use App\Models\Periodo;
-use App\Models\User;
-use App\Models\Matricula;
-use App\Models\Turno;
-use App\Models\PlantillaHorario;
-use App\Models\Horario;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use PDF;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Spatie\Permission\Models\Permission;
+use Illuminate\Database\Eloquent\Builder;
 // -----------------reportes Spreadsheet----------------------------------
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use App\Models\CalificacionDocenteDetalle;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use App\Models\AsistenciaEstudianteDetalle;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReporteController extends Controller
@@ -2534,6 +2536,95 @@ class ReporteController extends Controller
         return $response;
     }
 
+     public function rptVouchersIndex(){
+        $permissions = [];
+        if (auth()->user()->hasRole('Super Admin')) {
+            foreach (Permission::get() as $key => $value) {
+                array_push($permissions, $value->name);
+            }
+        } else {
+            foreach (Auth::user()->getAllPermissions() as $key => $value) {
+                array_push($permissions, $value->name);
+            }
+        }
+        $response['permisos'] = json_encode($permissions);
+        return view("intranet.reporte.vouchers", $response);
+     }
+
+  public function generarPDFVouchers(Request $request)
+    {
+        $inicio = $request->input('fecha_inicio');
+        $fin = $request->input('fecha_fin');
+
+        if (!$inicio || !$fin) {
+            return abort(400, 'Fechas requeridas');
+        }
+
+        $pagos = Pago::whereBetween('fecha', [$inicio, $fin])->get();
+
+        if ($pagos->isEmpty()) {
+            return abort(404, 'No se encontraron vouchers en el rango seleccionado');
+        }
+
+       $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+
+// Márgenes en los 4 lados
+$pdf->SetMargins(10, 10, 10);
+$pdf->SetAutoPageBreak(true, 10);
+$pdf->AddPage();
+
+$col = 0;
+$row = 0;
+
+// Área útil: 190 x 277 mm
+$voucherWidth = 95;
+$voucherHeight = 69.25;
+
+foreach ($pagos as $pago) {
+    $x = 10 + ($col * $voucherWidth);  // 10 mm margen izquierdo
+    $y = 10 + ($row * $voucherHeight); // 10 mm margen superior
+
+    // Imagen completa del voucher
+    $imgPath = storage_path("app/public/vouchers/{$pago->id}.jpg");
+    if (file_exists($imgPath)) {
+        $pdf->Image($imgPath, $x, $y, $voucherWidth, $voucherHeight, 'JPG');
+    }
+
+    // 👉 Borde del voucher
+    $pdf->SetDrawColor(0, 0, 0); // Negro
+    $pdf->Rect($x, $y, $voucherWidth, $voucherHeight, 'D');
+
+    // Fondo blanco para datos
+    $pdf->SetFillColor(255, 255, 255);
+    $pdf->Rect($x + 2, $y + 2, 90, 6, 'F'); // ancho mayor para línea horizontal
+
+    // Datos del voucher en una sola línea
+    $pdf->SetXY($x + 3, $y + 3);
+    $pdf->SetFont('helvetica', 'B', 7);
+    $pdf->Cell(0, 4,
+        "Secuencia: {$pago->secuencia} - DNI: {$pago->nro_documento} - Fecha: {$pago->fecha} - Monto: S/ {$pago->monto}",
+        0, 1, 'L', false
+    );
+
+
+    // Posición siguiente
+    $col++;
+    if ($col > 1) {
+        $col = 0;
+        $row++;
+    }
+
+    if ($row > 3) {
+        $pdf->AddPage();
+        $row = 0;
+        $col = 0;
+    }
+}
+
+
+        return response($pdf->Output('reporte_vouchers.pdf', 'I'))
+            ->header('Content-Type', 'application/pdf');
+    }
 
     // public function rptPersonalizado()
     // {

@@ -209,6 +209,7 @@ Vue.component("i-reporte-asistencia-docente", require("./components/intranet/rep
 Vue.component("i-reporte-docente-calificacion", require("./components/intranet/reporte/ReporteDocenteCalificacionComponent.vue").default);
 Vue.component("i-reporte-pagos", require("./components/intranet/reporte/ReportePagosComponent.vue").default);
 Vue.component("i-reporte-docente-ingresantes", require("./components/intranet/reporte/ReporteDocenteIngresantesComponent.vue").default);
+Vue.component("i-reporte-vouchers", require("./components/intranet/reporte/ReporteVouchersComponent.vue").default);
 
 Vue.component("i-estadistica", require("./components/intranet/estadistica/IndexComponent.vue").default);
 // ***************GRAFICOS ESTADISTICA**************
