@@ -11,3 +11,8 @@ Homestead.yaml
 npm-debug.log
 yarn-error.log
 .prettierrc.json
+
+# Ignorar archivos de Docker
+docker-compose.yml
+Dockerfile
+nginx/

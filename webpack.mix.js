@@ -10,10 +10,9 @@ const mix = require('laravel-mix');
  | file for the application as well as bundling up all the JS files.
  |
  */
-
-// mix.js('resources/js/app.js', 'public/js')
- //   .vue()
-//     .sass('resources/sass/app.scss', 'public/css');
+ mix.js('resources/js/app.js', 'public/js')
+   .vue()
+    .sass('resources/sass/app.scss', 'public/css');
 
 mix.styles([
     'node_modules/@fortawesome/fontawesome-free/css/all.css',
@@ -28,8 +27,8 @@ mix.styles([
     // 'resources/coreui/vendors/@coreui/chartjs/js/coreui-chartjs.bundle.js',
     'resources/coreui/vendors/@coreui/utils/js/coreui-utils.js',
     'resources/coreui/js/main.js'
-], 'public/js/cepre-coreui.js')
-.js(['resources/js/app.js'], 'public/js/app.js');
+], 'public/js/cepre-coreui.js');
+//.//js(['resources/js/app.js'], 'public/js/app.js');
 
 // css y js para WEB
 mix.scripts([

@@ -298,9 +298,14 @@
                     @endcan
                     @can('ver reporte docente ingresantes')
                     <li class="c-sidebar-nav-item">
-                        <a class="c-sidebar-nav-link" href="{{ url('intranet/reporte/docente-ingresantes') }}"><span class="c-sidebar-nav-icon"></span>Docente Ingresantes</a>
+                        <a class="c-sidebar-nav-link" href="{{ url('intranet/reporte/docente-ingresantes') }}"><span class="c-sidebar-nav-icon"></span>Docentes Ingresantes</a>
                     </li>
-                    @endcan
+                    @endcan    
+                    @can('ver reporte vouchers')
+                    <li class="c-sidebar-nav-item">
+                        <a class="c-sidebar-nav-link" href="{{ url('intranet/reporte/vouchers') }}"><span class="c-sidebar-nav-icon"></span>Vouchers</a>
+                    </li>
+                    @endcan              
 
                 </ul>
             </li>

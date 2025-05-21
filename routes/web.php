@@ -1161,6 +1161,10 @@ Route::group(['middleware' => ['auth']], function () {
             Route::get('/docente-ingresantes', 'Intranet\ReporteController@rptDocenteIngresantesIndex');
             Route::get('/docente-ingresantes/lista', 'Intranet\ReporteController@rptDocenteIngresantesLista');
 
+            Route::get('/vouchers', 'Intranet\ReporteController@rptVouchersIndex');
+            Route::get('/vouchers/pdf', 'Intranet\ReporteController@generarPDFVouchers');
+        
+
             // Route::post('/update-cuadernillo/{id}', 'Intranet\CoordinadorDocente\CuadernilloController@updateCuadernillo');
             // Route::get('cuadernillo/lista/data', 'Intranet\CoordinadorDocente\CuadernilloController@lista');
 
