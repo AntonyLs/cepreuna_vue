@@ -2565,8 +2565,8 @@ class ReporteController extends Controller
             ->when($tipo === 'imagenes', function ($query) {
                 $query->where(function ($q) {
                     $q->where('voucher', 'like', '%.jpg')
-                    ->orWhere('voucher', 'like', '%.jpeg')
-                    ->orWhere('voucher', 'like', '%.png');
+                        ->orWhere('voucher', 'like', '%.jpeg')
+                        ->orWhere('voucher', 'like', '%.png');
                 });
             })
             ->when($tipo === 'documentos', function ($query) {
@@ -2576,6 +2576,12 @@ class ReporteController extends Controller
 
         if ($pagos->isEmpty()) {
             return abort(404, 'No se encontraron vouchers en el rango seleccionado');
+        }
+
+        // Asegurar carpeta temp existe
+        $tempPath = storage_path('app/temp');
+        if (!\File::exists($tempPath)) {
+            \File::makeDirectory($tempPath, 0775, true);
         }
 
         $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
@@ -2594,19 +2600,19 @@ class ReporteController extends Controller
             $x = 10 + ($col * $voucherWidth);
             $y = 10 + ($row * $voucherHeight);
             $showImage = false;
+            $imagePath = null;
 
             if (in_array($extension, ['jpg', 'jpeg', 'png']) && file_exists($basePath)) {
                 $imagePath = $basePath;
                 $showImage = true;
             } elseif ($extension === 'pdf' && file_exists($basePath)) {
-                // Convertir PDF a imagen temporal
-                $previewPath = storage_path("app/temp/voucher_{$pago->id}.jpg");
+                $previewPath = $tempPath . "/voucher_{$pago->id}.jpg";
 
                 if (!file_exists($previewPath)) {
                     try {
                         $imagick = new \Imagick();
                         $imagick->setResolution(150, 150);
-                        $imagick->readImage($basePath . '[0]'); // solo primera página
+                        $imagick->readImage($basePath . '[0]');
                         $imagick->setImageFormat('jpeg');
                         $imagick->writeImage($previewPath);
                         $imagick->clear();
@@ -2641,6 +2647,11 @@ class ReporteController extends Controller
                 0, 1, 'L', false
             );
 
+            // Eliminar imagen temporal si fue PDF
+            if ($extension === 'pdf' && isset($previewPath) && file_exists($previewPath)) {
+                unlink($previewPath);
+            }
+
             // Siguiente posición
             $col++;
             if ($col > 1) {
@@ -2655,9 +2666,13 @@ class ReporteController extends Controller
             }
         }
 
+        // Limpieza de emergencia (por si algo no se borró)
+        \File::cleanDirectory($tempPath);
+
         return response($pdf->Output('reporte_vouchers.pdf', 'I'))
             ->header('Content-Type', 'application/pdf');
     }
+
 
 
 
