@@ -44,7 +44,7 @@ class GenerarReporteVouchers implements ShouldQueue
         $tempPath = storage_path('app/temp');
         if (!file_exists($tempPath)) mkdir($tempPath, 0775, true);
 
-        $chunks = $pagos->chunk(96);
+        $chunks = $pagos->chunk(56);
         $pdfFiles = [];
         $prefijo = $this->tipo === 'documentos' ? 'reporte_vouchersPDF' : 'reporte_vouchersIMGS';
 
