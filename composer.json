@@ -23,6 +23,8 @@
         "nwidart/laravel-modules": "^7.3",
         "owen-it/laravel-auditing": "10.0",
         "phpoffice/phpspreadsheet": "^1.29",
+        "setasign/fpdf": "*",
+        "setasign/fpdi": "*",
         "spatie/laravel-permission": "^3.18",
         "tymon/jwt-auth": "^1.0"
     },

@@ -2561,7 +2561,7 @@ class ReporteController extends Controller
             return abort(400, 'Fechas requeridas');
         }
 
-        $pagos = Pago::whereBetween('fecha', [$inicio, $fin])
+        $pagos = Pago::whereBetween('updated_at', [$inicio, $fin])
             ->when($tipo === 'imagenes', function ($query) {
                 $query->where(function ($q) {
                     $q->where('voucher', 'like', '%.jpg')
@@ -2572,13 +2572,13 @@ class ReporteController extends Controller
             ->when($tipo === 'documentos', function ($query) {
                 $query->where('voucher', 'like', '%.pdf');
             })
+            ->limit(100)
             ->get();
 
         if ($pagos->isEmpty()) {
             return abort(404, 'No se encontraron vouchers en el rango seleccionado');
         }
 
-        // Asegurar carpeta temp existe
         $tempPath = storage_path('app/temp');
         if (!\File::exists($tempPath)) {
             \File::makeDirectory($tempPath, 0775, true);
@@ -2589,10 +2589,13 @@ class ReporteController extends Controller
         $pdf->SetAutoPageBreak(true, 10);
         $pdf->AddPage();
 
-        $col = 0;
-        $row = 0;
-        $voucherWidth = 95;
-        $voucherHeight = 69.25;
+        $isDoc = $tipo === 'documentos';
+        $voucherWidth = $isDoc ? 63.33 : 95;
+        $voucherHeight = $isDoc ? 98 : 69.25;
+        $maxCols = $isDoc ? 3 : 2;
+        $maxRows = $isDoc ? 2 : 4;
+
+        $col = $row = 0;
 
         foreach ($pagos as $pago) {
             $extension = strtolower(pathinfo($pago->voucher, PATHINFO_EXTENSION));
@@ -2600,32 +2603,27 @@ class ReporteController extends Controller
             $x = 10 + ($col * $voucherWidth);
             $y = 10 + ($row * $voucherHeight);
             $showImage = false;
-            $imagePath = null;
 
             if (in_array($extension, ['jpg', 'jpeg', 'png']) && file_exists($basePath)) {
                 $imagePath = $basePath;
                 $showImage = true;
             } elseif ($extension === 'pdf' && file_exists($basePath)) {
                 $previewPath = $tempPath . "/voucher_{$pago->id}.jpg";
+                try {
+                    $imagick = new \Imagick();
+                    $imagick->setResolution(150, 150);
+                    $imagick->readImage($basePath . '[0]');
+                    $imagick->setImageFormat('jpeg');
+                    $imagick->writeImage($previewPath);
+                    $imagick->clear();
+                    $imagick->destroy();
 
-                if (!file_exists($previewPath)) {
-                    try {
-                        $imagick = new \Imagick();
-                        $imagick->setResolution(150, 150);
-                        $imagick->readImage($basePath . '[0]');
-                        $imagick->setImageFormat('jpeg');
-                        $imagick->writeImage($previewPath);
-                        $imagick->clear();
-                        $imagick->destroy();
-                    } catch (\Exception $e) {
-                        \Log::error("Error al convertir PDF a imagen: " . $e->getMessage());
-                        continue;
+                    if (file_exists($previewPath)) {
+                        $imagePath = $previewPath;
+                        $showImage = true;
                     }
-                }
-
-                if (file_exists($previewPath)) {
-                    $imagePath = $previewPath;
-                    $showImage = true;
+                } catch (\Exception $e) {
+                    \Log::error("Error al convertir PDF a imagen: " . $e->getMessage());
                 }
             }
 
@@ -2633,12 +2631,10 @@ class ReporteController extends Controller
                 $pdf->Image($imagePath, $x, $y, $voucherWidth, $voucherHeight, 'JPG');
             }
 
-            // Mostrar datos siempre
             $pdf->SetDrawColor(0, 0, 0);
             $pdf->Rect($x, $y, $voucherWidth, $voucherHeight, 'D');
-
             $pdf->SetFillColor(255, 255, 255);
-            $pdf->Rect($x + 2, $y + 2, 90, 6, 'F');
+            $pdf->Rect($x + 2, $y + 2, $voucherWidth - 5, 6, 'F');
 
             $pdf->SetXY($x + 3, $y + 3);
             $pdf->SetFont('helvetica', 'B', 7);
@@ -2647,34 +2643,30 @@ class ReporteController extends Controller
                 0, 1, 'L', false
             );
 
-            // Eliminar imagen temporal si fue PDF
-            if ($extension === 'pdf' && isset($previewPath) && file_exists($previewPath)) {
+            if (isset($previewPath) && file_exists($previewPath)) {
                 unlink($previewPath);
             }
 
-            // Siguiente posición
             $col++;
-            if ($col > 1) {
+            if ($col >= $maxCols) {
                 $col = 0;
                 $row++;
             }
 
-            if ($row > 3) {
+            if ($row >= $maxRows) {
                 $pdf->AddPage();
                 $row = 0;
                 $col = 0;
             }
         }
 
-        // Limpieza de emergencia (por si algo no se borró)
         \File::cleanDirectory($tempPath);
 
-        return response($pdf->Output('reporte_vouchers.pdf', 'I'))
-            ->header('Content-Type', 'application/pdf');
+        $filename = "reporte_vouchers_{$inicio}_a_{$fin}.pdf";
+        return response($pdf->Output($filename, 'I'))
+        ->header('Content-Type', 'application/pdf')
+        ->header('Content-Disposition', 'inline; filename="'.$filename.'"');
     }
-
-
-
 
     // public function rptPersonalizado()
     // {
