@@ -2553,6 +2553,9 @@ class ReporteController extends Controller
 
     public function generarPDFVouchers(Request $request)
     {
+        ini_set('memory_limit', '512M');
+        set_time_limit(120);
+
         $inicio = $request->input('desde');
         $fin = $request->input('hasta');
         $tipo = $request->input('tipo');
@@ -2572,7 +2575,7 @@ class ReporteController extends Controller
             ->when($tipo === 'documentos', function ($query) {
                 $query->where('voucher', 'like', '%.pdf');
             })
-            ->limit(100)
+            ->limit(104)
             ->get();
 
         if ($pagos->isEmpty()) {
@@ -2592,8 +2595,8 @@ class ReporteController extends Controller
         $isDoc = $tipo === 'documentos';
         $voucherWidth = $isDoc ? 63.33 : 95;
         $voucherHeight = $isDoc ? 98 : 69.25;
-        $maxCols = $isDoc ? 3 : 2;
-        $maxRows = $isDoc ? 2 : 4;
+        $maxCols = $isDoc ? 2 : 2;
+        $maxRows = $isDoc ? 3 : 4;
 
         $col = $row = 0;
 
