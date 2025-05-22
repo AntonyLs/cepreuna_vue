@@ -2551,7 +2551,7 @@ class ReporteController extends Controller
         return view("intranet.reporte.vouchers", $response);
      }
 
-public function generarPDFVouchers(Request $request)
+    public function generarPDFVouchers(Request $request)
     {
         ini_set('memory_limit', '1024M');
         set_time_limit(180);
@@ -2614,6 +2614,7 @@ public function generarPDFVouchers(Request $request)
             $y = 10 + ($row * $voucherHeight);
             $showImage = false;
             $imagePath = null;
+            $tempFixedPath = null;
 
             if (in_array($extension, ['jpg', 'jpeg', 'png']) && file_exists($basePath)) {
                 $imagePath = $basePath;
@@ -2642,6 +2643,21 @@ public function generarPDFVouchers(Request $request)
                 }
             }
 
+            // Reparar JPGs corruptos
+            if ($showImage && in_array($extension, ['jpg', 'jpeg'])) {
+                try {
+                    $tempFixedPath = $tempPath . "/fixed_{$pago->id}.jpg";
+                    $img = @imagecreatefromjpeg($imagePath);
+                    if ($img !== false) {
+                        imagejpeg($img, $tempFixedPath, 100);
+                        imagedestroy($img);
+                        $imagePath = $tempFixedPath;
+                    }
+                } catch (\Exception $e) {
+                    \Log::error("Error reparando imagen JPEG: " . $e->getMessage());
+                }
+            }
+
             if ($showImage) {
                 $pdf->Image($imagePath, $x, $y, $voucherWidth, $voucherHeight, 'JPG');
             }
@@ -2649,7 +2665,6 @@ public function generarPDFVouchers(Request $request)
             // Mostrar datos
             $pdf->SetDrawColor(0, 0, 0);
             $pdf->Rect($x, $y, $voucherWidth, $voucherHeight, 'D');
-
             $pdf->SetFillColor(255, 255, 255);
             $pdf->Rect($x + 2, $y + 2, $voucherWidth - 4, 6, 'F');
 
@@ -2660,12 +2675,14 @@ public function generarPDFVouchers(Request $request)
                 0, 1, 'L', false
             );
 
-            // Eliminar imagen temporal si fue PDF
-            if ($extension === 'pdf' && isset($previewPath) && file_exists($previewPath)) {
+            // Borrar imágenes temporales
+            if (isset($previewPath) && file_exists($previewPath)) {
                 unlink($previewPath);
             }
+            if (isset($tempFixedPath) && file_exists($tempFixedPath)) {
+                unlink($tempFixedPath);
+            }
 
-            // Siguiente posición
             $col++;
             if ($col >= $colsPerPage) {
                 $col = 0;
@@ -2679,26 +2696,16 @@ public function generarPDFVouchers(Request $request)
             }
         }
 
-        // Limpieza final
         \File::cleanDirectory($tempPath);
 
-        $prefijo = '';
-        if ($tipo === 'documentos') {
-            $prefijo = 'reporte_vouchersPDF';
-        } elseif ($tipo === 'imagenes') {
-            $prefijo = 'reporte_vouchersIMGS';
-        } else {
-            $prefijo = 'reporte_vouchers'; // fallback por si acaso
-        }
-
+        $prefijo = $tipo === 'documentos' ? 'reporte_vouchersPDF' : ($tipo === 'imagenes' ? 'reporte_vouchersIMGS' : 'reporte_vouchers');
         $nombreArchivo = "{$prefijo}_{$inicio}_al_{$fin}.pdf";
 
         return response($pdf->Output($nombreArchivo, 'I'))
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', 'inline; filename="' . $nombreArchivo . '"');
-   
-            
-}
+    }
+
 
 
     // public function rptPersonalizado()
