@@ -2664,7 +2664,8 @@ class ReporteController extends Controller
 
         $filename = "reporte_vouchers_{$inicio}_a_{$fin}.pdf";
         return response($pdf->Output($filename, 'I'))
-            ->header('Content-Type', 'application/pdf');
+        ->header('Content-Type', 'application/pdf')
+        ->header('Content-Disposition', 'inline; filename="'.$filename.'"');
     }
 
     // public function rptPersonalizado()
