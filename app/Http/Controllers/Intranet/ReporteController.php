@@ -2551,124 +2551,138 @@ class ReporteController extends Controller
         return view("intranet.reporte.vouchers", $response);
      }
 
-    public function generarPDFVouchers(Request $request)
-    {
-        ini_set('memory_limit', '512M');
-        set_time_limit(120);
+public function generarPDFVouchers(Request $request)
+{
+    ini_set('memory_limit', '512M');
+    set_time_limit(120);
 
-        $inicio = $request->input('desde');
-        $fin = $request->input('hasta');
-        $tipo = $request->input('tipo');
+    $inicio = $request->input('desde');
+    $fin = $request->input('hasta');
+    $tipo = $request->input('tipo');
 
-        if (!$inicio || !$fin || !$tipo) {
-            return abort(400, 'Fechas requeridas');
-        }
-
-        $pagos = Pago::whereBetween('updated_at', [$inicio, $fin])
-            ->when($tipo === 'imagenes', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('voucher', 'like', '%.jpg')
-                        ->orWhere('voucher', 'like', '%.jpeg')
-                        ->orWhere('voucher', 'like', '%.png');
-                });
-            })
-            ->when($tipo === 'documentos', function ($query) {
-                $query->where('voucher', 'like', '%.pdf');
-            })
-            ->get();
-
-        if ($pagos->isEmpty()) {
-            return abort(404, 'No se encontraron vouchers en el rango seleccionado');
-        }
-
-        $tempPath = storage_path('app/temp');
-        if (!\File::exists($tempPath)) {
-            \File::makeDirectory($tempPath, 0775, true);
-        }
-
-        $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
-        $pdf->SetMargins(10, 10, 10);
-        $pdf->SetAutoPageBreak(true, 10);
-        $pdf->AddPage();
-
-        $isDoc = $tipo === 'documentos';
-        $voucherWidth = $isDoc ? 95 : 95;
-        $voucherHeight = $isDoc ? 98 : 69.25;
-        $maxCols = $isDoc ? 2 : 2;
-        $maxRows = $isDoc ? 3 : 4;
-
-        $col = $row = 0;
-
-        foreach ($pagos as $pago) {
-            $extension = strtolower(pathinfo($pago->voucher, PATHINFO_EXTENSION));
-            $basePath = storage_path("app/public/vouchers/{$pago->voucher}");
-            $x = 10 + ($col * $voucherWidth);
-            $y = 10 + ($row * $voucherHeight);
-            $showImage = false;
-
-            if (in_array($extension, ['jpg', 'jpeg', 'png']) && file_exists($basePath)) {
-                $imagePath = $basePath;
-                $showImage = true;
-            } elseif ($extension === 'pdf' && file_exists($basePath)) {
-                $previewPath = $tempPath . "/voucher_{$pago->id}.jpg";
-                try {
-                    $imagick = new \Imagick();
-                    $imagick->setResolution(150, 150);
-                    $imagick->readImage($basePath . '[0]');
-                    $imagick->setImageFormat('jpeg');
-                    $imagick->writeImage($previewPath);
-                    $imagick->clear();
-                    $imagick->destroy();
-
-                    if (file_exists($previewPath)) {
-                        $imagePath = $previewPath;
-                        $showImage = true;
-                    }
-                } catch (\Exception $e) {
-                    \Log::error("Error al convertir PDF a imagen: " . $e->getMessage());
-                }
-            }
-
-            if ($showImage) {
-                $pdf->Image($imagePath, $x, $y, $voucherWidth, $voucherHeight, 'JPG');
-            }
-
-            $pdf->SetDrawColor(0, 0, 0);
-            $pdf->Rect($x, $y, $voucherWidth, $voucherHeight, 'D');
-            $pdf->SetFillColor(255, 255, 255);
-            $pdf->Rect($x + 2, $y + 2, $voucherWidth - 5, 6, 'F');
-
-            $pdf->SetXY($x + 3, $y + 3);
-            $pdf->SetFont('helvetica', 'B', 7);
-            $pdf->Cell(0, 4,
-                "Secuencia: {$pago->secuencia} - DNI: {$pago->nro_documento} - Fecha: {$pago->fecha} - Monto: S/ {$pago->monto}",
-                0, 1, 'L', false
-            );
-
-            if (isset($previewPath) && file_exists($previewPath)) {
-                unlink($previewPath);
-            }
-
-            $col++;
-            if ($col >= $maxCols) {
-                $col = 0;
-                $row++;
-            }
-
-            if ($row >= $maxRows) {
-                $pdf->AddPage();
-                $row = 0;
-                $col = 0;
-            }
-        }
-
-        \File::cleanDirectory($tempPath);
-
-        $filename = "reporte_vouchers_{$inicio}_a_{$fin}.pdf";
-        return response($pdf->Output($filename, 'I'))
-            ->header('Content-Type', 'application/pdf')
-            ->header('Content-Disposition', 'inline; filename="' . $filename . '"');
+    if (!$inicio || !$fin || !$tipo) {
+        return abort(400, 'Fechas requeridas');
     }
+
+    $pagos = Pago::whereBetween('updated_at', [$inicio, $fin])
+        ->when($tipo === 'imagenes', function ($query) {
+            $query->where(function ($q) {
+                $q->where('voucher', 'like', '%.jpg')
+                    ->orWhere('voucher', 'like', '%.jpeg')
+                    ->orWhere('voucher', 'like', '%.png');
+            });
+        })
+        ->when($tipo === 'documentos', function ($query) {
+            $query->where('voucher', 'like', '%.pdf');
+        })
+        ->get();
+
+    if ($pagos->isEmpty()) {
+        return abort(404, 'No se encontraron vouchers en el rango seleccionado');
+    }
+
+    $tempPath = storage_path('app/temp');
+    if (!\File::exists($tempPath)) {
+        \File::makeDirectory($tempPath, 0775, true);
+    }
+
+    $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+    $pdf->SetMargins(0, 0, 0);
+    $pdf->SetAutoPageBreak(true, 0);
+    $pdf->AddPage();
+
+    $isDoc = $tipo === 'documentos';
+    $voucherWidth = $isDoc ? 95 : 95;
+    $voucherHeight = $isDoc ? 89.7 : 69.25;
+    $maxCols = $isDoc ? 2 : 2;
+    $maxRows = $isDoc ? 3 : 4;
+
+    // Cálculo de márgenes centrales
+    $pageWidth = $pdf->getPageWidth();
+    $pageHeight = $pdf->getPageHeight();
+
+    $totalWidth = $voucherWidth * $maxCols;
+    $totalHeight = $voucherHeight * $maxRows;
+
+    $offsetX = ($pageWidth - $totalWidth) / 2;
+    $offsetY = ($pageHeight - $totalHeight) / 2;
+
+    $col = $row = 0;
+
+    foreach ($pagos as $pago) {
+        $extension = strtolower(pathinfo($pago->voucher, PATHINFO_EXTENSION));
+        $basePath = storage_path("app/public/vouchers/{$pago->voucher}");
+        $x = $offsetX + ($col * $voucherWidth);
+        $y = $offsetY + ($row * $voucherHeight);
+        $showImage = false;
+
+        if (in_array($extension, ['jpg', 'jpeg', 'png']) && file_exists($basePath)) {
+            $imagePath = $basePath;
+            $showImage = true;
+        } elseif ($extension === 'pdf' && file_exists($basePath)) {
+            $previewPath = $tempPath . "/voucher_{$pago->id}.jpg";
+            try {
+                $imagick = new \Imagick();
+                $imagick->setResolution(150, 150);
+                $imagick->readImage($basePath . '[0]');
+                $imagick->setImageFormat('jpeg');
+                $imagick->writeImage($previewPath);
+                $imagick->clear();
+                $imagick->destroy();
+
+                if (file_exists($previewPath)) {
+                    $imagePath = $previewPath;
+                    $showImage = true;
+                }
+            } catch (\Exception $e) {
+                \Log::error("Error al convertir PDF a imagen: " . $e->getMessage());
+            }
+        }
+
+        if ($showImage) {
+            $pdf->Image($imagePath, $x, $y, $voucherWidth, $voucherHeight, 'JPG');
+        }
+
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->Rect($x, $y, $voucherWidth, $voucherHeight, 'D');
+        $pdf->SetFillColor(255, 255, 255);
+        $pdf->Rect($x + 2, $y + 2, $voucherWidth - 5, 6, 'F');
+
+        $pdf->SetXY($x + 3, $y + 3);
+        $pdf->SetFont('helvetica', 'B', 7);
+        $pdf->Cell(0, 4,
+            "Secuencia: {$pago->secuencia} - DNI: {$pago->nro_documento} - Fecha: {$pago->fecha} - Monto: S/ {$pago->monto}",
+            0, 1, 'L', false
+        );
+
+        if (isset($previewPath) && file_exists($previewPath)) {
+            unlink($previewPath);
+        }
+
+        $col++;
+        if ($col >= $maxCols) {
+            $col = 0;
+            $row++;
+        }
+
+        if ($row >= $maxRows) {
+            $pdf->AddPage();
+            $row = 0;
+            $col = 0;
+        }
+    }
+
+    \File::cleanDirectory($tempPath);
+
+    $filename = "reporte_vouchers_{$inicio}_a_{$fin}.pdf";
+    return response($pdf->Output($filename, 'I'))
+        ->header('Content-Type', 'application/pdf')
+        ->header('Content-Disposition', 'inline; filename="' . $filename . '"');
+}
+
+
+
+
 
     // public function rptPersonalizado()
     // {
