@@ -1162,7 +1162,9 @@ Route::group(['middleware' => ['auth']], function () {
             Route::get('/docente-ingresantes/lista', 'Intranet\ReporteController@rptDocenteIngresantesLista');
 
             Route::get('/vouchers', 'Intranet\ReporteController@rptVouchersIndex');
-            Route::get('/vouchers/pdf', 'Intranet\ReporteController@generarPDFVouchers');
+            Route::post('/vouchers/pdf', 'Intranet\ReporteController@generarPDFVouchers');
+           Route::get('/vouchers/descargar/{filename}', 'Intranet\ReporteController@descargarZipVouchers');
+
         
 
             // Route::post('/update-cuadernillo/{id}', 'Intranet\CoordinadorDocente\CuadernilloController@updateCuadernillo');
