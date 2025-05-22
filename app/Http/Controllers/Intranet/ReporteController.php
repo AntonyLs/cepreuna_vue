@@ -2553,7 +2553,7 @@ class ReporteController extends Controller
 
 public function generarPDFVouchers(Request $request)
     {
-        init_set('memory_limit', '1024M');
+        ini_set('memory_limit', '1024M');
         set_time_limit(180);
         
         $inicio = $request->input('desde');
