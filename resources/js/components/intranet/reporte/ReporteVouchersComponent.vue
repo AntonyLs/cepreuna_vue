@@ -1,22 +1,50 @@
 <template>
-  <div class="container mt-5">
-    <h1 class="mb-4 text-center">Reporte de Vouchers</h1>
+  <div>
+    <vue-confirm-dialog></vue-confirm-dialog>
+    <div class="row">
+      <div class="col-sm-12">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="row justify-content-center">
+              <!-- Fecha de Inicio -->
+              <div class="form-group mb-0 col-md-3">
+                <label for="startDate">Fecha de Inicio</label>
+                <input type="date" id="startDate" class="form-control" v-model="startDate">
+              </div>
 
-    <div class="row justify-content-center mb-4">
-      <div class="col-md-5">
-        <label for="startDate" class="form-label">Fecha de Inicio:</label>
-        <input type="date" id="startDate" class="form-control" v-model="startDate">
-      </div>
-      <div class="col-md-5">
-        <label for="endDate" class="form-label">Fecha de Fin:</label>
-        <input type="date" id="endDate" class="form-control" v-model="endDate">
-      </div>
-    </div>
+              <!-- Fecha de Fin -->
+              <div class="form-group mb-0 col-md-3">
+                <label for="endDate">Fecha de Fin</label>
+                <input type="date" id="endDate" class="form-control" v-model="endDate">
+              </div>
 
-    <div class="text-center">
-      <button class="btn btn-primary" :disabled="!startDate || !endDate" @click="generateReport">
-        Generar PDF
-      </button>
+              <!-- Tipo de Archivo -->
+              <div class="form-group mb-0 col-md-3">
+                <label for="archivo">Tipo de Archivo</label>
+                <select class="form-control" id="fileType" v-model="fileType">
+                  <option value="">--Seleccionar--</option>
+                  <option value="imagenes">Imágenes</option>
+                  <option value="documentos">PDFs</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Botón centrado abajo -->
+            <div class="row mt-4">
+              <div class="col text-center">
+                <button
+                  class="btn btn-primary"
+                  style="min-width: 200px;"
+                  @click="generateReport"
+                  :disabled="!startDate || !endDate || !fileType"
+                >
+                  Generar PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -26,14 +54,21 @@ export default {
   data() {
     return {
       startDate: '',
-      endDate: ''
+      endDate: '',
+      fileType: ''
     };
   },
   methods: {
     generateReport() {
-      const url = `/intranet/reporte/vouchers/pdf?fecha_inicio=${this.startDate}&fecha_fin=${this.endDate}`;
+      if (!this.startDate || !this.endDate || !this.fileType) {
+        alert('Por favor debe completas las opciones: fechas y tipo de archivo.');
+        return;
+      }
+
+      const url = `/intranet/reporte/vouchers/pdf?desde=${this.startDate}&hasta=${this.endDate}&tipo=${this.fileType}`;
       window.open(url, '_blank');
     }
   }
 };
 </script>
+
