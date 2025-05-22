@@ -2551,80 +2551,115 @@ class ReporteController extends Controller
         return view("intranet.reporte.vouchers", $response);
      }
 
-  public function generarPDFVouchers(Request $request)
+    public function generarPDFVouchers(Request $request)
     {
-        $inicio = $request->input('fecha_inicio');
-        $fin = $request->input('fecha_fin');
+        $inicio = $request->input('desde');
+        $fin = $request->input('hasta');
+        $tipo = $request->input('tipo');
 
-        if (!$inicio || !$fin) {
+        if (!$inicio || !$fin || !$tipo) {
             return abort(400, 'Fechas requeridas');
         }
 
-        $pagos = Pago::whereBetween('fecha', [$inicio, $fin])->get();
+        $pagos = Pago::whereBetween('fecha', [$inicio, $fin])
+            ->when($tipo === 'imagenes', function ($query) {
+                $query->where(function ($q) {
+                    $q->where('voucher', 'like', '%.jpg')
+                    ->orWhere('voucher', 'like', '%.jpeg')
+                    ->orWhere('voucher', 'like', '%.png');
+                });
+            })
+            ->when($tipo === 'documentos', function ($query) {
+                $query->where('voucher', 'like', '%.pdf');
+            })
+            ->get();
 
         if ($pagos->isEmpty()) {
             return abort(404, 'No se encontraron vouchers en el rango seleccionado');
         }
 
-       $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
-
-// Márgenes en los 4 lados
-$pdf->SetMargins(10, 10, 10);
-$pdf->SetAutoPageBreak(true, 10);
-$pdf->AddPage();
-
-$col = 0;
-$row = 0;
-
-// Área útil: 190 x 277 mm
-$voucherWidth = 95;
-$voucherHeight = 69.25;
-
-foreach ($pagos as $pago) {
-    $x = 10 + ($col * $voucherWidth);  // 10 mm margen izquierdo
-    $y = 10 + ($row * $voucherHeight); // 10 mm margen superior
-
-    // Imagen completa del voucher
-    $imgPath = storage_path("app/public/vouchers/{$pago->id}.jpg");
-    if (file_exists($imgPath)) {
-        $pdf->Image($imgPath, $x, $y, $voucherWidth, $voucherHeight, 'JPG');
-    }
-
-    // 👉 Borde del voucher
-    $pdf->SetDrawColor(0, 0, 0); // Negro
-    $pdf->Rect($x, $y, $voucherWidth, $voucherHeight, 'D');
-
-    // Fondo blanco para datos
-    $pdf->SetFillColor(255, 255, 255);
-    $pdf->Rect($x + 2, $y + 2, 90, 6, 'F'); // ancho mayor para línea horizontal
-
-    // Datos del voucher en una sola línea
-    $pdf->SetXY($x + 3, $y + 3);
-    $pdf->SetFont('helvetica', 'B', 7);
-    $pdf->Cell(0, 4,
-        "Secuencia: {$pago->secuencia} - DNI: {$pago->nro_documento} - Fecha: {$pago->fecha} - Monto: S/ {$pago->monto}",
-        0, 1, 'L', false
-    );
-
-
-    // Posición siguiente
-    $col++;
-    if ($col > 1) {
-        $col = 0;
-        $row++;
-    }
-
-    if ($row > 3) {
+        $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->SetAutoPageBreak(true, 10);
         $pdf->AddPage();
-        $row = 0;
-        $col = 0;
-    }
-}
 
+        $col = 0;
+        $row = 0;
+        $voucherWidth = 95;
+        $voucherHeight = 69.25;
+
+        foreach ($pagos as $pago) {
+            $extension = strtolower(pathinfo($pago->voucher, PATHINFO_EXTENSION));
+            $basePath = storage_path("app/public/vouchers/{$pago->voucher}");
+            $x = 10 + ($col * $voucherWidth);
+            $y = 10 + ($row * $voucherHeight);
+            $showImage = false;
+
+            if (in_array($extension, ['jpg', 'jpeg', 'png']) && file_exists($basePath)) {
+                $imagePath = $basePath;
+                $showImage = true;
+            } elseif ($extension === 'pdf' && file_exists($basePath)) {
+                // Convertir PDF a imagen temporal
+                $previewPath = storage_path("app/temp/voucher_{$pago->id}.jpg");
+
+                if (!file_exists($previewPath)) {
+                    try {
+                        $imagick = new \Imagick();
+                        $imagick->setResolution(150, 150);
+                        $imagick->readImage($basePath . '[0]'); // solo primera página
+                        $imagick->setImageFormat('jpeg');
+                        $imagick->writeImage($previewPath);
+                        $imagick->clear();
+                        $imagick->destroy();
+                    } catch (\Exception $e) {
+                        \Log::error("Error al convertir PDF a imagen: " . $e->getMessage());
+                        continue;
+                    }
+                }
+
+                if (file_exists($previewPath)) {
+                    $imagePath = $previewPath;
+                    $showImage = true;
+                }
+            }
+
+            if ($showImage) {
+                $pdf->Image($imagePath, $x, $y, $voucherWidth, $voucherHeight, 'JPG');
+            }
+
+            // Mostrar datos siempre
+            $pdf->SetDrawColor(0, 0, 0);
+            $pdf->Rect($x, $y, $voucherWidth, $voucherHeight, 'D');
+
+            $pdf->SetFillColor(255, 255, 255);
+            $pdf->Rect($x + 2, $y + 2, 90, 6, 'F');
+
+            $pdf->SetXY($x + 3, $y + 3);
+            $pdf->SetFont('helvetica', 'B', 7);
+            $pdf->Cell(0, 4,
+                "Secuencia: {$pago->secuencia} - DNI: {$pago->nro_documento} - Fecha: {$pago->fecha} - Monto: S/ {$pago->monto}",
+                0, 1, 'L', false
+            );
+
+            // Siguiente posición
+            $col++;
+            if ($col > 1) {
+                $col = 0;
+                $row++;
+            }
+
+            if ($row > 3) {
+                $pdf->AddPage();
+                $row = 0;
+                $col = 0;
+            }
+        }
 
         return response($pdf->Output('reporte_vouchers.pdf', 'I'))
             ->header('Content-Type', 'application/pdf');
     }
+
+
 
     // public function rptPersonalizado()
     // {
