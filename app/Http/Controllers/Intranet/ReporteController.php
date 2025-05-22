@@ -2594,10 +2594,9 @@ public function generarPDFVouchers(Request $request)
     $isDoc = $tipo === 'documentos';
     $voucherWidth = $isDoc ? 95 : 95;
     $voucherHeight = $isDoc ? 89.7 : 69.25;
-    $maxCols = $isDoc ? 2 : 2;
+    $maxCols = 2;
     $maxRows = $isDoc ? 3 : 4;
 
-    // Cálculo de márgenes centrales
     $pageWidth = $pdf->getPageWidth();
     $pageHeight = $pdf->getPageHeight();
 
@@ -2650,7 +2649,7 @@ public function generarPDFVouchers(Request $request)
 
         $pdf->SetXY($x + 3, $y + 3);
         $pdf->SetFont('helvetica', 'B', 7);
-        $pdf->Cell(0, 4,
+        $pdf->Cell($voucherWidth - 6, 4,
             "Secuencia: {$pago->secuencia} - DNI: {$pago->nro_documento} - Fecha: {$pago->fecha} - Monto: S/ {$pago->monto}",
             0, 1, 'L', false
         );
