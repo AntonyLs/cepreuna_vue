@@ -2575,7 +2575,6 @@ class ReporteController extends Controller
             ->when($tipo === 'documentos', function ($query) {
                 $query->where('voucher', 'like', '%.pdf');
             })
-            ->limit(104)
             ->get();
 
         if ($pagos->isEmpty()) {
@@ -2593,7 +2592,7 @@ class ReporteController extends Controller
         $pdf->AddPage();
 
         $isDoc = $tipo === 'documentos';
-        $voucherWidth = $isDoc ? 63.33 : 95;
+        $voucherWidth = $isDoc ? 95 : 95;
         $voucherHeight = $isDoc ? 98 : 69.25;
         $maxCols = $isDoc ? 2 : 2;
         $maxRows = $isDoc ? 3 : 4;
@@ -2667,8 +2666,8 @@ class ReporteController extends Controller
 
         $filename = "reporte_vouchers_{$inicio}_a_{$fin}.pdf";
         return response($pdf->Output($filename, 'I'))
-        ->header('Content-Type', 'application/pdf')
-        ->header('Content-Disposition', 'inline; filename="'.$filename.'"');
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'inline; filename="' . $filename . '"');
     }
 
     // public function rptPersonalizado()
